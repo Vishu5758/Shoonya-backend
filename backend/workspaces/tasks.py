@@ -29,6 +29,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
     get_audio_segments_count,
+    get_bounding_box_count,
     ocr_word_count,
 )
 from tasks.views import SentenceOperationViewSet
@@ -645,6 +646,8 @@ def send_user_reports_mail_ws(
     ws_anno_list = []
     ws_reviewer_list = []
     ws_superchecker_list = []
+    total_bounding_boxes = 0  # Initialize bounding box count
+
     for project in proj_objs:
         anno_list = project.annotators.all()
         reviewer_list = project.annotation_reviewers.all()
@@ -667,6 +670,11 @@ def send_user_reports_mail_ws(
         ws_anno_list.extend(anno_ids)
         ws_reviewer_list.extend(reviewer_ids)
         ws_superchecker_list.extend(superchecker_ids)
+        
+        # If the project type is "OCRTranscriptionEditing", count bounding boxes
+        if project_type == "OCRTranscriptionEditing":
+            annotation_label_result = project.annotations.all().values("type")
+            total_bounding_boxes += get_bounding_box_count(annotation_label_result)
 
     ws_anno_list = list(set(ws_anno_list))
     ws_reviewer_list = list(set(ws_reviewer_list))
@@ -755,7 +763,11 @@ def send_user_reports_mail_ws(
             else ""
         )
     )
-
+     # Include bounding box count if project is OCRTranscriptionEditing
+    if project_type == "OCRTranscriptionEditing":
+        message += f"\nTotal Bounding Boxes: {total_bounding_boxes}"
+        
+        
     email = EmailMessage(
         f"{workspace.workspace_name}" + " Payment Reports",
         message,
@@ -765,7 +777,7 @@ def send_user_reports_mail_ws(
     )
     email.send()
 
-
+# send_user_analysis_reports_mail_ws
 @shared_task(queue="reports")
 def send_project_analysis_reports_mail_ws(
     pk,
@@ -1085,14 +1097,14 @@ def send_project_analysis_reports_mail_ws(
                 "Average Word Error Rate A/R": round(avg_word_error_rate_ar, 2),
                 "Average Word Error Rate R/S": round(avg_word_error_rate_rs, 2),
                 "Project Progress": round(project_progress, 3),
-            }
-
+            }               
+                
             if project_type in get_audio_project_types():
                 del result["Annotated Tasks Word Count"]
                 del result["Reviewed Tasks Word Count"]
                 del result["Exported Tasks Word Count"]
                 del result["SuperChecked Tasks Word Count"]
-
+                
             elif is_translation_project or project_type in [
                 "SemanticTextualSimilarity_Scale5",
                 "OCRTranscriptionEditing",
@@ -1117,8 +1129,6 @@ def send_project_analysis_reports_mail_ws(
                 del result["Total Raw Audio Duration"]
                 del result["Average Word Error Rate A/R"]
                 del result["Average Word Error Rate R/S"]
-
-            final_result.append(result)
 
     df = pd.DataFrame.from_dict(final_result)
 
@@ -2176,6 +2186,13 @@ def send_user_analysis_reports_mail_ws(
                 total_raw_duration = "0:00:00"
                 avg_segment_duration = 0
                 avg_segments_per_task = 0
+                
+                # for OCRTranscriptionEditing project type to 1121 line
+                if project_type == "OCRTranscriptionEditing":
+                    total_label_count = 0
+                    for each_anno in labeled_annotations:
+                        total_label_count += get_bounding_box_count(each_anno.result)               
+                
                 if project_type in get_audio_project_types():
                     total_duration_list = []
                     total_raw_duration_list = []
@@ -2257,6 +2274,10 @@ def send_user_analysis_reports_mail_ws(
                     "Avg Segment Duration": round(avg_segment_duration, 2),
                     "Average Segments Per Task": round(avg_segments_per_task, 2),
                 }
+                # Add Total Label Count only for OCRTranscriptionEditing projects
+                if project_type == "OCRTranscriptionEditing":
+                    result["Total Label Count"] = total_label_count
+                    
             else:
                 result = {
                     "Annotator": name,
