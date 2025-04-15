@@ -28,6 +28,7 @@ from projects.utils import (
     get_audio_transcription_duration,
     get_audio_segments_count,
     ocr_word_count,
+    get_bounding_box_count,
     calculate_word_error_rate_between_two_audio_transcription_annotation,
 )
 from workspaces.tasks import (
@@ -783,6 +784,9 @@ def get_counts(
     accepted_wt_minor_changes = 0
     accepted_wt_major_changes = 0
     labeled = 0
+    # total_bounding_boxes = 0 
+    
+    
     if tgt_language == None:
         if project_progress_stage == None:
             projects_objs = Project.objects.filter(
@@ -834,6 +838,7 @@ def get_counts(
             labeled,
             avg_lead_time,
             total_word_count,
+            total_bounding_boxes,
             total_duration,
             total_raw_duration,
             avg_segment_duration,
@@ -875,10 +880,16 @@ def get_counts(
                     pass
 
             total_word_count = sum(total_word_count_list)
+        
         elif "OCRTranscription" in project_type:
             total_word_count = 0
+            # total_bounding_boxes = 0
             for each_anno in labeled_annotations:
                 total_word_count += ocr_word_count(each_anno.result)
+                # total_bounding_boxes += get_bounding_box_count(each_anno.result)
+                
+                
+                
 
         total_duration = "0:00:00"
         avg_segment_duration = 0
@@ -948,6 +959,7 @@ def get_counts(
         project_count,
         no_of_workspaces_objs,
         total_word_count,
+        # total_bounding_boxes,
         total_duration,
         total_raw_duration,
         avg_segment_duration,
