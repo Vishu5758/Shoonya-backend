@@ -34,15 +34,8 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("ENV") == "dev"
 
-if DEBUG:
-    ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0", "*"]
-else:
-    ALLOWED_HOSTS = [
-        "shoonya.ai4bharat.org",
-        "0.0.0.0",
-        "backend.shoonya.ai4bharat.org",
-        "backend.shoonya2.ai4bharat.org",
-    ]
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+
 
 # Application definition
 
